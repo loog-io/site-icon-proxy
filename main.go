@@ -37,7 +37,7 @@ func HandleGetImage(w http.ResponseWriter, r *http.Request) {
 	site := vestigo.Param(r, "path")
 	site = strings.TrimSuffix(site, ".ico")
 	info, err := os.Stat("./cache/" + site + ".ico")
-	if !os.IsNotExist(err) && (time.Now().Unix()-info.ModTime().Unix()) < 60 {
+	if !os.IsNotExist(err) && (time.Now().Unix()-info.ModTime().Unix()) < 604800 {
 		file, err = ioutil.ReadFile("./cache/" + site + ".ico")
 		if err != nil {
 			w.Write([]byte("Could not open file"))
@@ -61,10 +61,16 @@ func HandleGetImage(w http.ResponseWriter, r *http.Request) {
 
 	}
 	fmt.Println(site)
-	w.Header().Set("Cache-Control", "max-age=604800, public")
-	w.Header().Set("Content-Type", "image/vnd.microsoft.icon")
-	w.Header().Set("Etag", strconv.FormatUint(uint64(crc32.ChecksumIEEE(file)), 32))
-	w.Write(file)
+
+	if r.Header.Get("If-None-Match") == "" {
+		w.Header().Set("Cache-Control", "max-age=604800, public")
+		w.Header().Set("Content-Type", "image/vnd.microsoft.icon")
+		w.Header().Set("Etag", strconv.FormatUint(uint64(crc32.ChecksumIEEE(file)), 32))
+		w.Write(file)
+	} else if r.Header.Get("If-None-Match") == strconv.FormatUint(uint64(crc32.ChecksumIEEE(file)), 32) {
+		w.Header().Set("Cache-Control", "max-age=604800, public")
+		w.WriteHeader(http.StatusNotModified)
+	}
 
 }
 
